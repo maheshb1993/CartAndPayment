@@ -9,6 +9,10 @@ import org.openqa.selenium.firefox.FirefoxDriver;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
+import java.util.Calendar;
+
+import static org.junit.jupiter.api.Assertions.*;
+
 public class PaymentTests {
     WebDriver driver;
     WebDriverWait wait;
@@ -23,10 +27,10 @@ public class PaymentTests {
 
     @BeforeEach
     public void setupDriver() {
-//        WebDriverManager.chromedriver().setup();
-//        driver = new ChromeDriver();
-        WebDriverManager.firefoxdriver().setup();
-        driver = new FirefoxDriver();
+        WebDriverManager.chromedriver().setup();
+        driver = new ChromeDriver();
+//        WebDriverManager.firefoxdriver().setup();
+//        driver = new FirefoxDriver();
         wait = new WebDriverWait(driver, 10);
     }
 
@@ -91,6 +95,55 @@ public class PaymentTests {
         Assertions.assertTrue(driver.findElements(By.xpath(".//table[contains(@class, 'account-orders-table')]//tbody/tr")).size() == 1,
                 "Number of order in orders page is not 1.");
         deleteUser();
+    }
+
+    @Test
+    public void buyWithoutAccountOrderSummary() {
+        navigateAndCloseDemoNotice("https://fakestore.testelka.pl/product-category/yoga-i-pilates/", true);
+        addProductAndViewCart(61);
+        driver.findElement(checkoutButton).click();
+        fillBillingFields();
+        fillPaymentFields();
+        buyAndWait();
+
+        int orderNumber = Integer.parseInt(wait.until(ExpectedConditions.
+                visibilityOf(driver.findElement(By.cssSelector(".order>strong")))).getText());
+        String currentDate = getCurrentDate();
+        String expectedDate = driver.findElement(By.cssSelector(".date>strong")).getText();
+        String price = driver.findElement(By.cssSelector("strong>span.amount")).getText();
+        String expectedPrice = "4 299,00 zł";
+        String paymentMethod = driver.findElement(By.cssSelector(".method")).getText();
+        String productName = driver.findElement(By.cssSelector(".product-name>a")).getText();
+        String expectedProductName = "Wakacje z yogą w Kraju Kwitnącej Wiśni";
+        String productQuantity = driver.findElement(By.cssSelector(".product-name>strong")).getText();
+        String expectedProductQuantity = "× 1";
+
+        assertAll(
+                ()->assertTrue(orderNumber > 0, "Order number is not bigger than 0"),
+                ()->assertEquals(expectedDate, currentDate, "Expected " + expectedDate + " date, but was " +
+                        currentDate),
+                ()->assertEquals(expectedPrice, price, "Expected " + expectedPrice + " price, but was " +
+                        price),
+                ()->assertTrue(paymentMethod.contains("Karta debetowa/kredytowa (Stripe)"), "Payment method was in not what expected"),
+                ()->assertEquals(expectedProductName, productName, "Expected " + expectedProductName +
+                        " name, but was " + productName),
+                ()->assertEquals(expectedProductQuantity, productQuantity, "Expected " + expectedProductQuantity +
+                        " product quantity, but was " + productQuantity)
+                );
+
+    }
+
+    private String getCurrentDate() {
+        Calendar date = Calendar.getInstance();
+        String fullDate = getPolishMonth(date.get(Calendar.MONTH)) + " " + date.get(Calendar.DAY_OF_MONTH) + ", " +
+                date.get(Calendar.YEAR);
+        return fullDate;
+    }
+
+    private String getPolishMonth(int numberOfMonth) {
+        String[] months = {"Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec", "Lipiec", "Sierpień", "Wrzesień",
+        "Październik", "Listopad", "Grudzień"};
+        return months[numberOfMonth];
     }
 
     private void navigateAndCloseDemoNotice(String page, Boolean notice) {
